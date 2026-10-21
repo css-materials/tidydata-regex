@@ -1,0 +1,401 @@
+---
+title: "Regular Expressions in R"
+date: "`r lubridate::today()`"
+output: 
+  html_document:
+    toc: true
+---
+
+Welcome! This tutorial will get you started with regular expressions (regex) and the stringr package from the ground up. There are 5 practice exercises. We'll tackle 1–4 together in class and walk through the solutions live. Exercise 5 is bonus practice to try on your own — the solutions are waiting for you at the end.
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, results = 'show', 
+                      message = FALSE, warning = FALSE)
+```
+
+## Regex with `stringr`: view functions
+
+They describe a specific pattern to match in a given text. More formally, regex is a *language on its own right*  used for *pattern matching* in many programming languages.
+
+
+```{r}
+library(stringr)
+suppressPackageStartupMessages(library(tidyverse))
+```
+
+`stringr` is the most popular R package for working with regular expressions. As many other packages we have learned, [`stringr` is part of the `tidyverse`](https://stringr.tidyverse.org/)
+
+Use functions from this package in combination with regular expressions ([see the cheat sheet](https://evoldyn.gitlab.io/evomics-2018/ref-sheets/R_strings.pdf)) to extract text from strings. We start with two helper functions from this package: 
+
+* `str_view()` returns the first regex match
+* `str_view_all()` returns all regex matches (deprecated in stringr `v1-5-0` https://www.tidyverse.org/blog/2022/12/stringr-1-5-0/)
+
+These two functions take a string (character vector) and a regular expressions as inputs, and return the match. 
+
+NB: these two functions allow only to VIEW the match, and we use them in this tutorial to show how regular expressions work. If you need to MANIPULATE the output, you need other functions from `stringr`. The most common are:
+
+* `str_count()`: count the number of matches
+* `str_extract()` and `str_extract_all()`: extract matches
+* `str_replace()` and `str_replace_all()`: replace matches
+* `str_detect()`: detect matches in a string (return TRUE or FALSE)
+* `str_split()`: split a string based on a match
+
+The functions from this list all work in a similar way: you pass the text and the regular expression as inputs, and they return matches. However, they do more  than just viewing the matches (e.g., they can count, extract, replace them, etc.)
+
+
+## Regex using normal characters
+
+**Match specific characters or full words:**
+```{r}
+x <- c("This is a sentence to practice regular expressions", 
+       "Find the word regex in this sentence",
+       "A last sentence similar to the first sentence")
+```
+
+```{r}
+str_view(x, "re")
+str_view(x, "regex")
+str_view(x, "sentence")
+```
+
+This is fine, but regular expressions are more powerful than simply replacing manually specified characters or full words: they use **meta-characters**, that is characters that have a unique meaning to the regex matching engine and that vastly enhance the search capability.
+
+
+## Most common regex meta-characters: `.` , `^`, `$`, `|`, `[]`
+
+**The `.` matches any single character:**
+```{r}
+str_view(x, "re.")
+str_view(x, "re...")
+```
+
+The `.` dot is a wildcard that matches any single character (except for newline characters). It is useful when dealing with a mix of characters (letters, digits, whitespace, special characters, etc.) or when you don't have detailed information about the text you are trying to match.
+
+**The `^` caret anchors a match to the start of the string:**
+```{r}
+str_view(x, "^re")
+str_view(x, "^F")
+str_view(x, "^F...")
+```
+
+**The `$` dollar sign anchors a match to the end of the string:**
+```{r}
+str_view(x, "s$")
+str_view(x, ".s$")
+str_view_all(x, "e$")
+str_view_all(x, "e")
+```
+
+
+**PRACTICE 1.** Use dots and `$` to match the last four characters of all sentences in `x` (defined above): 
+```{r practice1-solution}
+str_view(x, "....$")
+```
+
+
+**The `or` operator is represented using the `|` character:**
+```{r}
+str_view(x, "regular|regex")
+```
+
+The `or` operator can also be represented by grouping a set of characters using `[]`, which is shorthand for `|`. The main difference is that `[]` only works for single characters, not for entire words.
+
+**Use `[]` to match any (one) of the characters in the `[]`** (e.g., [abc] matches a, b, or c):
+```{r}
+str_view(x, "[re]")
+str_view_all(x, "[re]")
+```
+
+**Use `[]` with a `^` caret placed after the first `[` to match anything except what is in the `[]`** (e.g., [^abc] matches anything except a, b, or c):
+```{r}
+str_view(x, "[^re]")
+str_view_all(x, "[^re]")
+```
+
+**If placed outside square brackets, the caret has a different meaning**: itchecks whether one or more characters are located at the beginning of a strings:
+```{r}
+str_view_all(x, "^[re]")
+```
+
+**The square brackets can be used to show any consecutive letters or numbers.** For example, use `[0-9]` to check whether a string contains any three consecutive decimal digit characters:
+```{r}
+y <- "'ciao_Good_123_12hi"
+str_view_all(y, "[0-9][0-9][0-9]")
+```
+
+To check whether our string contains four alphabetic characters between the letter a and z included, use `[a-z]` for lowercase and `[A-Z]` for uppercase characters:
+```{r}
+str_view_all(y, "[a-zA-Z][a-z][a-z][a-z]")
+```
+
+
+**PRACTICE 2.** This sentence contains a set of unwanted/ugly characters. First, identify them using the `|` operator, then using the `[]`:
+```{r}
+j <- "This&is#MACS%30500"
+```
+
+```{r practice2-solution}
+str_view_all(j, "&|#|%")
+str_view_all(j, "[&#%]")
+```
+
+
+## Additional regex meta-characters: `\d`, `\D`, `\w`, `\W`, `\s`, `\S`
+
+Other useful meta-characters are `\d`, `\D`, `\w`, `\W`, `\s`, `\S`. Let's check how they work using the sentence below as example: 
+```{r}
+z <- "There are several assignments in this course: HW1, HW2, HW3, HW4, etc..."
+```
+
+**`\d` matches any decimal digit character, same as [0-9]**
+```{r}
+str_view_all(z, "HW\\d")
+```
+
+Note the `\\` double-backslashes: this is because to include a literal backslash (as in the meta-character `\d`) you need to double it. If you want to avoid the double-backslashes, pass the regular expression as a "raw string":
+```{r}
+str_view_all(z, r"(HW\d)")
+```
+A raw string is a normal string but prefixed with an `r`. Raw strings allow to interpret the backslash `\` as a literal character, rather than an escape character.
+
+**`\D` matches any character that is NOT decimal digit, same as [^0-9]**
+```{r}
+str_view_all(z, "HW\\D")
+```
+
+**`\w` matches any alphanumeric character, same as [a-zA-Z0-9]**
+```{r}
+str_view_all(z, "\\w")
+```
+
+**`\W` matches any character that is NOT alphanumeric, same as [^a-zA-Z0-9]**
+```{r}
+str_view_all(z, "\\W")
+```
+
+**`\s` matches any white space character**
+```{r}
+str_view_all(z, "\\s")
+```
+
+**`\S` matches any character that is NOT white space**
+```{r}
+str_view_all(z, "\\S")
+```
+
+
+**PRACTICE 3.** Apply these meta-characters to extract all phone numbers from the following string:
+```{r}
+s <- "My number is 444-3340, Carl number is 555-3755, Richard number is 666-6681"
+```
+
+```{r pratice3-solution}
+str_view_all(s, "[0-9][0-9][0-9]-[0-9][0-9][0-9][0-9]")
+str_view_all(s, "\\d\\d\\d-\\d\\d\\d\\d")
+str_view_all(s, r"(\d\d\d-\d\d\d\d)")
+```
+`
+
+
+## Regex quantifiers: `*`, `+`, `?`, `{}` 
+
+We can simply the above code using quantifiers. These are meta-characters that allow to **specify quantifiable conditions, such that a certain character must occur 0 or more times, 1 or more times, and so on**
+
+The most common quantifiers are:
+
+* `*` 	    matches 0 or more single character
+* `+` 	    matches 1 or more
+* `?` 	    matches 0 or 1
+* `{2}`     matches a specified number of repetitions, here exactly 2
+* `{2,5}`	  between 2 and 5 repetitions
+* `{2,}`	  2 or more repetitions
+* `{,5}`	  up to 5 repetitions
+
+For example, we can use quantifiers to achieve the same results we did in practice 3 (extract all phone numbers from a string):
+```{r}
+str_view_all(s, "[0-9]{3}-[0-9]{4}")
+str_view_all(s, "\\d{3}-\\d{4}")
+str_view_all(s, "\\d+-\\d+")
+# with raw string
+str_view_all(s, r"(\d+-\d+)")
+```
+
+Let's see a few more examples of quantifiers:
+```{r}
+example <- "zooooom in oh oh!"
+```
+
+`o*` matches the letter "o" zero or more repetitions
+```{r}
+str_view(example, "o*")
+```
+
+`o{5}` matches "o" exactly 5 contiguous times
+```{r}
+str_view_all(example, "o{5}")
+```
+
+`o{,5}` matches "o" between 1 and 5 contiguous times
+```{r}
+str_view_all(example, "o{1,5}")
+```
+
+We can also represent ranges of common values as sets. The following regex matches any series of two letters and one number:
+```{r}
+p <- "hw1, HW2, Hw3"
+str_view_all(p, "[A-Za-z]{2}[0-9]")
+```
+
+And we can negate values in the set using the caret `^`: 
+```{r}
+str_view_all(p, "[^a-z]{2}[0-9]")
+```
+
+To match the names in the sentence below we can use `[a-z]` and literal matches along with the `*` quantifier which matches zero or more recurrences of a single character:
+```{r}
+q <- "#richard said that #bob loved the dinner cooked by @susan"
+str_view_all(q, r"([#@][a-zA-Z]+)")
+#str_view_all(q, r"([#@][a-zA-Z\$]+)")
+ # match zero or more with asterisk
+```
+
+Notice that quantifiers, like * or + or ?, apply to the character immediately to the left and not the full set of characters. 
+
+
+**PRACTICE 4.** Match all three emails in the following string:
+```{r}
+email <- "smith90@uchicago.edu nardin@uchicago.edu happy2@uchicago.edu"
+```
+
+```{r pratice4-solution}
+str_view_all(email, "[a-z]+[0-9]*@uchicago\\.edu")
+```
+
+Solution: `[a-z]+` matches one or more characters, `[0-9]*` matches zero or more numbers, `@uchicago\.edu` is a literal match with `\` to match the dot literally
+
+
+**Quantifiers can be "greedy" or "lazy" ("non-greedy")**: by default, they are greedy.
+
+Examples of Greedy quantifiers are `?`,`*`, `+`, and `{}`:
+
+* They match as much text as possible; return the longest string that matches the pattern 
+* Example: the regex `a+` will match as many "a" as possible in the string "aaaa" even even though the substrings "a", "aa", "aaa" all match the regex `a+`
+
+```{r}
+ex <- "aaaa"
+str_view(ex, "a+")
+```
+
+
+Examples of Lazy or Non-Greedy quantifiers are `??`, `*?`, `+?`, and `{}?`:
+
+* They match as little text as possible
+* Example: the regex `a+?` will match as few "a" as possible in the string "aaaa". Thus, it matches the each individual "a"
+
+```{r}
+str_view(ex, "a+?")
+```
+
+
+
+## Regex with `stringr`: additional functions
+
+We reviewed the most important regex meta-characters and quantifiers.
+Below are additional examples to illustrate other common functions from `stringr` beyond `str_view()`. Check the [documentation](https://stringr.tidyverse.org/) for all arguments that these functions (and many more) can take.
+
+Let's imagine we have a text, here the beginning of Alice in Wonderland, and we want to manipulate it. 
+```{r}
+alice <- "Alice was beginning to get very tired of sitting by her sister on the bank, and of having nothing to do: once or twice she had peeped into the book her sister was reading, but it had no pictures or conversations in it, 'and what is the use of a book,' thought Alice 'without pictures or conversation?'"
+```
+
+```{r}
+alice <- "Alice was beginning to get very tired of sitting by her sister on the bank, and of having nothing to do: \
+once or twice she had peeped into the book her sister was reading, but it had no pictures or conversations in it, \
+'and what is the use of a book,' thought Alice 'without pictures or conversation?' So she was considering in her own mind \
+(as well as she could, for the hot day made her feel very sleepy and stupid), whether the pleasure of making a daisy-chain \
+would be worth the trouble of getting up and picking the daisies, when suddenly a White Rabbit with pink eyes ran close by her.\
+There was nothing so VERY remarkable in that; nor did Alice think it so VERY much out of the way to hear the Rabbit say to \
+itself, 'Oh dear!  Oh dear!  I shall be late!' (when she thought it over afterwards, it occurred to her that she ought to have \
+wondered at this, but at the time it all seemed quite natural); but when the Rabbit actually \
+TOOK A WATCH OUT OF ITS WAISTCOAT-POCKET, and looked at it, and then hurried on, Alice started to her feet, \
+for it flashed across her mind that she had never before seen a rabbit with either a waistcoat-pocket, or a watch to \
+take out of it, and burning with curiosity, she ran across the field after it, and fortunately was just in time to see it pop \
+down a large rabbit-hole under the hedge. \
+In another moment down went Alice after it, never once considering how in the world she was to get out again. \
+The rabbit-hole went straight on like a tunnel for some way, and then dipped suddenly down, so suddenly that \
+Alice had not a moment to think about stopping herself before she found herself falling down a very deep well. \
+Either the well was very deep, or she fell very slowly, for she had plenty of time as she went down to look about her and to \
+wonder what was going to happen next.  First, she tried to look down and make out what she was coming to, \
+but it was too dark to see anything; then she looked at the sides of the well, and noticed that they were filled with \
+cupboards and book-shelves; here and there she saw maps and pictures hung upon pegs. \
+She took down a jar from one of the shelves as she passed; it was labelled `ORANGE MARMALADE', \
+but to her great disappointment it was empty:  she did not like to drop the jar for fear of killing somebody, \
+so managed to put it into one of the cupboards as she fell past it. \ "
+```
+
+
+**`str_count()`: count the number of matches**
+```{r}
+str_count(alice, "[a-z]*ing")
+```
+
+**`str_extract()` and `str_extract_all()`: extract matches**
+```{r}
+str_extract_all(alice, "[a-z]*ing")
+```
+
+**`str_replace()` and `str_replace_all()`: replace matches**
+```{r}
+str_replace_all(alice, ",", "")
+```
+
+```{r}
+str_replace_all(alice, "[[:punct:]]", "")
+```
+
+**`str_split()`: split a string based on a match**
+```{r}
+str_split(alice, ",")
+```
+
+Matches are generally saved in a list. For example:
+```{r}
+split_text <- str_split(alice, ",")
+is.list(split_text)
+split_text
+```
+
+**PRACTICE 5.** Apply regular expressions to "Alice in Wonderland"
+
+Find and replace all uppercase words. Notice `\\b` specifies word boundaries (word boundary anchor) 
+```{r}
+# find
+
+# replace
+
+```
+
+Find all present progressive verbs that have as previous word an auxiliar (e.g., was beginning, was reading)
+```{r}
+
+```
+
+
+**PRACTICE 5 SOLUTIONS** Apply regular expressions to "Alice in Wonderland"
+
+Find and replace all uppercase words. Notice `\\b` specifies word boundaries (word boundary anchor) 
+```{r}
+# find
+str_view(alice, "\\b[A-Z]+\\b")
+
+# replace
+str_replace_all(alice, "\\b[A-Z]+\\b", function(x) tolower(x))
+```
+
+Find all present progressive verbs that have as previous word an auxiliar (e.g., was beginning, was reading)
+```{r}
+pattern <- "\\b(is|are|was|were)\\s+[a-z]+ing\\b"
+matches <- str_extract_all(alice, pattern)
+```
+
+
